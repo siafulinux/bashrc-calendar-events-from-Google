@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# Replace these with your actual API key and calendar ID
+API_KEY="<google api key>"
+CALENDAR_ID="<google calendar id you want to pull from>"
+
+# Get today's date in UTC
+TODAY=$(date -u +"%Y-%m-%d")
+START_TIME="${TODAY}T05:00:00Z"
+END_TIME="${TODAY}T23:59:59Z"
+
+# Get this week's date range (Monday to Sunday)
+THIS_WEEK_START=$(date -u -d 'last Sunday' +"%Y-%m-%d")  # last Sunday
+THIS_WEEK_END=$(date -u -d 'next Saturday' +"%Y-%m-%d")  # next Saturday
+
+# URL encode the calendar ID
+ENCODED_CALENDAR_ID=$(echo $CALENDAR_ID | sed 's/@/%40/g')
+
+# Construct the API URL
+URL="https://www.googleapis.com/calendar/v3/calendars/${ENCODED_CALENDAR_ID}/events"
+
+# Make the API request using curl and process with jq
+RESPONSE=$(curl -s "${URL}?key=${API_KEY}&timeMin=${START_TIME}&timeMax=${END_TIME}&singleEvents=true&orderBy=startTime&fields=items(summary,start,end)" \
+  -H "Accept: application/json")
+
+# Check if there are any events
+EVENT_COUNT=$(echo $RESPONSE | jq '.items | length')
+
+if [ "$EVENT_COUNT" -eq "0" ] || [ "$EVENT_COUNT" = "null" ]; then
+    echo "No events for today."
+    exit 0
+fi
+
+# Print header for today's events
+echo "Today's Events ($(date -u +"%B %d, %Y")):"
+echo "-----------------------------------------"
+
+# Function to convert datetime to HHMM format
+convert_to_HHMM() {
+    local datetime=$1
+    if [[ $datetime == *"T"* ]]; then
+        echo $datetime | cut -d'T' -f2 | cut -d':' -f1,2 | tr -d ':'
+    else
+        echo "All Day"
+    fi
+}
+
+# Find maximum title length
+MAX_LENGTH=$(echo $RESPONSE | jq -r '.items[].summary | length' | sort -nr | head -n1)
+if [ -z "$MAX_LENGTH" ]; then
+    MAX_LENGTH=20  # default value if no events have titles
+fi
+
+# Process and display today's events
+echo $RESPONSE | jq -r '.items[] | "\(.summary)\t\(.start.dateTime // .start.date)\t\(.end.dateTime // .end.date)"' | \
+while IFS=$'\t' read -r summary start_time end_time; do
+    start_formatted=$(convert_to_HHMM "$start_time")
+    end_formatted=$(convert_to_HHMM "$end_time")
+    printf "%-${MAX_LENGTH}s: %s - %s\n" "$summary" "$start_formatted" "$end_formatted"
+done
+
+# Get upcoming events for the rest of the week
+echo ""
+echo "This Week's Events:"
+echo "-------------------"
+
+# Filter events for the rest of the week
+THIS_WEEK_EVENTS=$(curl -s "${URL}?key=${API_KEY}&timeMin=${THIS_WEEK_START}T00:00:00Z&timeMax=${THIS_WEEK_END}T23:59:59Z&singleEvents=true&orderBy=startTime&fields=items(summary,start,end)" \
+  -H "Accept: application/json")
+
+# Process and display events for the rest of the week
+echo $THIS_WEEK_EVENTS | jq -r '.items[] | "\(.summary)\t\(.start.dateTime // .start.date)\t\(.end.dateTime // .end.date)"' | \
+while IFS=$'\t' read -r summary start_time end_time; do
+    start_formatted=$(convert_to_HHMM "$start_time")
+    end_formatted=$(convert_to_HHMM "$end_time")
+    
+    # Get the day of the week for the event
+    event_date=$(echo $start_time | cut -d'T' -f1)
+    event_day=$(date -u -d "$event_date" +"%A the %eth")
+    
+    printf "%s : %s  - %s\n" "$event_day" "$start_formatted" "$summary"
+done
