@@ -5,7 +5,7 @@ This was created using ChatGPT and Claude.ai.
 
 ### Install
 
-You will need to obtain a Google API (free) and the calendar ID you wish to pull data from.
+You will need to obtain a Google API and the calendar ID you wish to pull data from.
 Edit google_calendar.sh and make appropriate entries.
 
     git clone https://github.com/siafulinux/bashrc-calendar-events-from-Google.git
