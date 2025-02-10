@@ -1,9 +1,8 @@
-# bashrc-calendar-events-from-Google
-A bash script to pull todays and this weeks events and display it after opening the console...
+# Pull calendar events from Google and display in bash console
 
-This was created using ChatGPT and Claude.ai. 
+A bash script to pull todays and this weeks events and display it after opening the console. This was created using ChatGPT and Claude.ai. 
 
-### Install
+## Install
 
 You will need to obtain a Google API and the calendar ID you wish to pull data from.
 Edit google_calendar.sh and make appropriate entries.
